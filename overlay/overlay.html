@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LoL AI Coach</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="renderer.js"></script>
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <main class="hud-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">LoL AI Coach</p>
+          <h1 id="player-name">Esperando partida</h1>
+        </div>
+        <div class="connection-pill" id="connection-pill">Sin datos</div>
+      </header>
+
+      <section class="summary-grid">
+        <article class="summary-card">
+          <span>Tiempo</span>
+          <strong id="game-time">00:00</strong>
+        </article>
+        <article class="summary-card">
+          <span>Fase</span>
+          <strong id="game-phase">Waiting</strong>
+        </article>
+        <article class="summary-card">
+          <span>KDA</span>
+          <strong id="player-kda">0 / 0 / 0</strong>
+        </article>
+        <article class="summary-card">
+          <span>Oro</span>
+          <strong id="player-gold">0</strong>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <span>Objetivos</span>
+          <span id="map-name">Sin conexion</span>
+        </div>
+        <div class="objective-grid" id="objectives"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <span>Sugerencias</span>
+          <span id="summary-text">Esperando datos del backend</span>
+        </div>
+        <div class="suggestion-list" id="suggestions"></div>
+      </section>
+    </main>
+  </body>
+</html>
