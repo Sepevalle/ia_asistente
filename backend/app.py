@@ -30,7 +30,7 @@ def healthcheck():
 def game_state():
     """Return the current normalized game state and coaching suggestions."""
     use_demo = request.args.get("demo") == "1"
-    raw_data, error = get_live_data(use_demo=use_demo)
+    raw_data, error, live_client_meta = get_live_data(use_demo=use_demo)
 
     state = build_game_state(raw_data, error=error)
     state["objectives"] = build_objectives(state)
@@ -49,10 +49,14 @@ def game_state():
         "allies": state["allies"],
         "enemies": state["enemies"],
         "team_stats": state["team_stats"],
+        "event_summary": state["event_summary"],
+        "team_context": state["team_context"],
+        "tactical": state["tactical"],
         "objectives": state["objectives"],
         "summary": analysis["summary"],
         "signals": analysis["signals"],
         "suggestions": analysis["suggestions"],
+        "live_client": live_client_meta,
     }
 
     return jsonify(payload)

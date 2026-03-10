@@ -35,14 +35,18 @@ function renderState(data) {
     `${player.kills || 0} / ${player.deaths || 0} / ${player.assists || 0}`
   );
   setText("player-gold", `${player.current_gold || 0}`);
+  setText("kill-diff", formatSignedNumber(data.team_stats?.kill_diff || 0));
+  setText("alive-diff", formatSignedNumber(data.team_stats?.alive_diff || 0));
   setText("map-name", data.map?.name || "Sin mapa");
   setText("summary-text", data.summary || "Sin resumen");
+  setText("signal-summary", buildSignalSummary(data));
 
   const connectionPill = document.getElementById("connection-pill");
   connectionPill.textContent = inGame ? "Coach activo" : "Esperando cliente";
   connectionPill.dataset.state = inGame ? "online" : "idle";
 
   renderObjectives(data.objectives || {});
+  renderSignals(data);
   renderSuggestions(data.suggestions || [], data.connection_error);
 }
 
@@ -62,10 +66,67 @@ function renderObjectives(objectives) {
     const card = document.createElement("article");
     card.className = "objective-card";
     card.dataset.state = objective.is_alive ? "alive" : objective.status;
+    const metadata = buildObjectiveMetadata(objective);
     card.innerHTML = `
       <span class="objective-name">${objective.name}</span>
       <strong class="objective-timer">${objective.timer}</strong>
+      <span class="objective-meta">${metadata}</span>
       <p class="objective-hint">${objective.hint}</p>
+    `;
+    container.appendChild(card);
+  }
+}
+
+function renderSignals(data) {
+  const container = document.getElementById("signals-grid");
+  container.innerHTML = "";
+
+  if (data.status !== "in_game") {
+    container.appendChild(
+      createEmptyBlock("Las senales tacticas apareceran cuando haya partida activa.")
+    );
+    return;
+  }
+
+  const signals = data.signals || {};
+  const enemyJungler = data.team_context?.enemy_jungler;
+  const liveClient = data.live_client || {};
+
+  const cards = [
+    {
+      label: "Fight",
+      value: formatToken(signals.fight_state || "even"),
+      tone: resolveFightTone(signals.fight_state)
+    },
+    {
+      label: "Momentum",
+      value: formatToken(signals.momentum || "neutral"),
+      tone: resolveMomentumTone(signals.momentum)
+    },
+    {
+      label: "Role",
+      value: formatToken(signals.player_role || "laner"),
+      tone: "neutral"
+    },
+    {
+      label: "Enemy JG",
+      value: formatEnemyJungler(enemyJungler),
+      tone: enemyJungler?.is_alive === false ? "good" : "neutral"
+    },
+    {
+      label: "Feed",
+      value: formatFeedSource(liveClient),
+      tone: liveClient.stale || liveClient.cache_hit ? "good" : "neutral"
+    }
+  ];
+
+  for (const signal of cards) {
+    const card = document.createElement("article");
+    card.className = "signal-card";
+    card.dataset.tone = signal.tone;
+    card.innerHTML = `
+      <span>${signal.label}</span>
+      <strong>${signal.value}</strong>
     `;
     container.appendChild(card);
   }
@@ -100,14 +161,18 @@ function renderConnectionError(error) {
   setText("game-phase", "Offline");
   setText("player-kda", "0 / 0 / 0");
   setText("player-gold", "0");
+  setText("kill-diff", "0");
+  setText("alive-diff", "0");
   setText("map-name", "Sin conexion");
   setText("summary-text", "Inicia Flask en http://127.0.0.1:5000");
+  setText("signal-summary", "Sin senales");
 
   const connectionPill = document.getElementById("connection-pill");
   connectionPill.textContent = "Backend offline";
   connectionPill.dataset.state = "offline";
 
   renderObjectives({});
+  renderSignals({ status: "offline" });
   renderSuggestions([], error.message);
 }
 
@@ -128,4 +193,99 @@ function formatPhase(phase) {
   }
 
   return phase.charAt(0).toUpperCase() + phase.slice(1);
+}
+
+function formatSignedNumber(value) {
+  if (value > 0) {
+    return `+${value}`;
+  }
+
+  return `${value}`;
+}
+
+function formatToken(value) {
+  return String(value)
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function formatEnemyJungler(enemyJungler) {
+  if (!enemyJungler) {
+    return "Unknown";
+  }
+
+  if (enemyJungler.is_alive === false) {
+    return `Dead ${enemyJungler.respawn_timer || 0}s`;
+  }
+
+  return `${enemyJungler.champion_name || "JG"} alive`;
+}
+
+function formatFeedSource(liveClient) {
+  if (!liveClient.source) {
+    return "Unknown";
+  }
+
+  const source = formatToken(liveClient.source);
+  if (liveClient.stale) {
+    return `${source} stale`;
+  }
+
+  if (liveClient.cache_hit) {
+    return `${source} cache`;
+  }
+
+  return `${source} ${liveClient.fetch_ms || 0}ms`;
+}
+
+function buildSignalSummary(data) {
+  if (data.status !== "in_game") {
+    return "Sin senales";
+  }
+
+  const fight = formatToken(data.signals?.fight_state || "even");
+  const momentum = formatToken(data.signals?.momentum || "neutral");
+  return `${fight} / ${momentum}`;
+}
+
+function buildObjectiveMetadata(objective) {
+  const parts = [];
+
+  if (objective.priority) {
+    parts.push(`prio ${objective.priority}`);
+  }
+
+  if (typeof objective.ally_stacks === "number" && typeof objective.enemy_stacks === "number") {
+    parts.push(`stacks ${objective.ally_stacks}-${objective.enemy_stacks}`);
+  }
+
+  return parts.join(" - ");
+}
+
+function resolveFightTone(fightState) {
+  if (fightState === "advantage" || fightState === "slight_advantage") {
+    return "good";
+  }
+
+  if (
+    fightState === "disadvantage" ||
+    fightState === "slight_disadvantage" ||
+    fightState === "unstable"
+  ) {
+    return "bad";
+  }
+
+  return "neutral";
+}
+
+function resolveMomentumTone(momentum) {
+  if (momentum === "allies") {
+    return "good";
+  }
+
+  if (momentum === "enemies") {
+    return "bad";
+  }
+
+  return "neutral";
 }

@@ -108,13 +108,14 @@ body {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
 
 .summary-card,
 .objective-card,
+.signal-card,
 .suggestion-card,
 .empty-state {
   border: 1px solid var(--border);
@@ -158,6 +159,7 @@ body {
 }
 
 .objective-grid,
+.signal-grid,
 .suggestion-list {
   display: grid;
   gap: 12px;
@@ -198,11 +200,54 @@ body {
   color: var(--gold);
 }
 
+.objective-meta {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+
 .objective-hint {
   margin: 10px 0 0;
   font-size: 13px;
   line-height: 1.45;
   color: var(--muted);
+}
+
+.signal-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.signal-card {
+  padding: 14px;
+}
+
+.signal-card span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.signal-card strong {
+  display: block;
+  font-size: 18px;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.signal-card[data-tone="good"] {
+  border-color: rgba(145, 248, 215, 0.34);
+  background: linear-gradient(180deg, rgba(22, 52, 53, 0.84), rgba(12, 28, 31, 0.84));
+}
+
+.signal-card[data-tone="bad"] {
+  border-color: rgba(255, 143, 143, 0.34);
+  background: linear-gradient(180deg, rgba(58, 22, 24, 0.82), rgba(29, 11, 13, 0.82));
 }
 
 .suggestion-card {
@@ -238,6 +283,7 @@ body {
   }
 
   .summary-grid,
+  .signal-grid,
   .objective-grid {
     grid-template-columns: 1fr;
   }
