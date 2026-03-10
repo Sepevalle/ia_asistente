@@ -217,8 +217,20 @@ DEMO_SNAPSHOT: Dict[str, Any] = {
             {"EventName": "FirstBlood", "EventTime": 145, "KillerName": "Enemy Jungle", "VictimName": "Top Ally"},
             {"EventName": "DragonKill", "EventTime": 610, "KillerName": "Jungle Ally", "DragonType": "Chemtech"},
             {"EventName": "TurretKilled", "EventTime": 940, "KillerName": "ADC Ally", "TurretKilled": "Turret_T2_C_05_A"},
-            {"EventName": "ChampionKill", "EventTime": 1166, "KillerName": "Josep", "VictimName": "Enemy Jungle"},
-            {"EventName": "ChampionKill", "EventTime": 1171, "KillerName": "Jungle Ally", "VictimName": "Enemy Top"},
+            {
+                "EventName": "ChampionKill",
+                "EventTime": 1166,
+                "KillerName": "Josep",
+                "VictimName": "Enemy Jungle",
+                "Position": {"x": 6100, "y": 8700},
+            },
+            {
+                "EventName": "ChampionKill",
+                "EventTime": 1171,
+                "KillerName": "Jungle Ally",
+                "VictimName": "Enemy Top",
+                "Position": {"x": 5400, "y": 9100},
+            },
         ]
     },
 }

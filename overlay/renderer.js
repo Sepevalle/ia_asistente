@@ -1,5 +1,14 @@
 const API_URL = "http://127.0.0.1:5000/game";
 const POLL_INTERVAL_MS = 2000;
+const SPEECH_ENABLED = true;
+const SPEECH_MIN_INTERVAL_MS = 12000;
+const SPEECH_REPEAT_COOLDOWN_MS = 90000;
+const SPEECH_PRIORITIES = new Set(["high", "medium"]);
+
+const speechState = {
+  lastSpokenAt: 0,
+  spoken: new Map()
+};
 
 document.addEventListener("DOMContentLoaded", () => {
   refreshState();
@@ -48,6 +57,7 @@ function renderState(data) {
   renderObjectives(data.objectives || {});
   renderSignals(data);
   renderSuggestions(data.suggestions || [], data.connection_error);
+  maybeSpeakSuggestions(data, data.suggestions || []);
 }
 
 function renderObjectives(objectives) {
@@ -288,4 +298,52 @@ function resolveMomentumTone(momentum) {
   }
 
   return "neutral";
+}
+
+function maybeSpeakSuggestions(data, suggestions) {
+  if (!SPEECH_ENABLED || !window.speechSynthesis) {
+    return;
+  }
+
+  if (data.status !== "in_game" || !suggestions.length) {
+    return;
+  }
+
+  if (window.speechSynthesis.speaking) {
+    return;
+  }
+
+  const now = Date.now();
+  if (now - speechState.lastSpokenAt < SPEECH_MIN_INTERVAL_MS) {
+    return;
+  }
+
+  const candidates = suggestions.filter((item) =>
+    SPEECH_PRIORITIES.has((item.priority || "low").toLowerCase())
+  );
+
+  for (const suggestion of candidates) {
+    const message = suggestion.message || "";
+    if (!message) {
+      continue;
+    }
+
+    const lastSpoken = speechState.spoken.get(message) || 0;
+    if (now - lastSpoken < SPEECH_REPEAT_COOLDOWN_MS) {
+      continue;
+    }
+
+    speakMessage(message);
+    speechState.spoken.set(message, now);
+    speechState.lastSpokenAt = now;
+    break;
+  }
+}
+
+function speakMessage(message) {
+  const utterance = new SpeechSynthesisUtterance(message);
+  utterance.lang = "es-ES";
+  utterance.rate = 1.05;
+  utterance.pitch = 1.0;
+  window.speechSynthesis.speak(utterance);
 }

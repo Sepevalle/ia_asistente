@@ -57,7 +57,7 @@ def build_game_state(raw_data: Dict[str, Any], error: str | None = None) -> Dict
     else:
         player["kill_participation"] = 0.0
 
-    player_lookup = {normalized_player["summoner_name"]: normalized_player for normalized_player in players}
+    player_lookup = _build_player_lookup(players)
     events = _normalize_events(raw_data.get("events", {}).get("Events", []), player_lookup)
 
     team_context = _build_team_context(player, ally_roster, enemy_roster)
@@ -103,11 +103,14 @@ def _normalize_player(raw_player: Dict[str, Any]) -> Dict[str, Any]:
     raw_items = raw_player.get("items") or []
     items = [_normalize_item(item) for item in raw_items if isinstance(item, dict)]
     raw_spells = raw_player.get("summonerSpells") or {}
+    raw_position = raw_player.get("position")
+    map_position = _normalize_position(raw_position)
 
     return {
         "summoner_name": raw_player.get("summonerName")
         or raw_player.get("riotIdGameName")
         or "Unknown",
+        "riot_id_game_name": raw_player.get("riotIdGameName") or "",
         "champion_name": raw_player.get("championName", "Unknown"),
         "team": raw_player.get("team", ""),
         "level": int(raw_player.get("level") or 0),
@@ -118,7 +121,8 @@ def _normalize_player(raw_player: Dict[str, Any]) -> Dict[str, Any]:
         "assists": int(scores.get("assists") or 0),
         "cs": int(scores.get("creepScore") or 0),
         "ward_score": int(scores.get("wardScore") or 0),
-        "position": raw_player.get("position") or "",
+        "position": raw_position or "",
+        "map_position": map_position,
         "items": items,
         "item_count": len(items),
         "boots_owned": any(_is_boots_item(item["name"]) for item in items),
@@ -136,6 +140,22 @@ def _normalize_item(raw_item: Dict[str, Any]) -> Dict[str, Any]:
         "name": raw_item.get("displayName", "Unknown item"),
         "slot": int(raw_item.get("slot") or 0),
     }
+
+
+def _normalize_position(raw_position: Any) -> Dict[str, int] | None:
+    """Normalize a raw position payload into integer coordinates."""
+    if not isinstance(raw_position, dict):
+        return None
+
+    x = raw_position.get("x")
+    y = raw_position.get("y")
+    if x is None or y is None:
+        return None
+
+    try:
+        return {"x": int(float(x)), "y": int(float(y))}
+    except (TypeError, ValueError):
+        return None
 
 
 def _enrich_active_player(
@@ -191,8 +211,11 @@ def _normalize_abilities(raw_abilities: Dict[str, Any]) -> Dict[str, Dict[str, A
 
 def _find_player(players: List[Dict[str, Any]], summoner_name: str) -> Dict[str, Any] | None:
     """Locate the active player inside the normalized roster."""
+    target_key = _normalize_name(summoner_name)
     for player in players:
         if player["summoner_name"] == summoner_name:
+            return player
+        if _normalize_name(player.get("summoner_name", "")) == target_key:
             return player
     return None
 
@@ -228,16 +251,25 @@ def _normalize_events(
 
         killer_name = event.get("KillerName", "")
         victim_name = event.get("VictimName", "")
+        killer_team = _lookup_team(player_lookup, killer_name)
+        victim_team = _lookup_team(player_lookup, victim_name)
+        position = _normalize_position(
+            event.get("Position")
+            or event.get("position")
+            or event.get("KillerPosition")
+            or event.get("VictimPosition")
+        )
         normalized_events.append(
             {
                 "event_name": event.get("EventName", ""),
                 "event_time": int(float(event.get("EventTime") or 0)),
                 "killer_name": killer_name,
-                "killer_team": player_lookup.get(killer_name, {}).get("team", ""),
+                "killer_team": killer_team,
                 "victim_name": victim_name,
-                "victim_team": player_lookup.get(victim_name, {}).get("team", ""),
+                "victim_team": victim_team,
                 "dragon_type": event.get("DragonType", ""),
                 "target_name": event.get("TurretKilled") or event.get("InhibKilled") or "",
+                "position": position,
             }
         )
 
@@ -525,3 +557,46 @@ def _empty_state(error: str | None) -> Dict[str, Any]:
             "ally_jungler_dead": False,
         },
     }
+
+
+def _normalize_name(name: str) -> str:
+    """Normalize summoner/riot names for event lookups."""
+    if not name:
+        return ""
+    base = name.split("#", 1)[0].strip()
+    return base.lower()
+
+
+def _build_player_lookup(players: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Build a lookup table keyed by multiple player name variants."""
+    lookup: Dict[str, Dict[str, Any]] = {}
+    for player in players:
+        for key in _player_name_keys(player):
+            if key:
+                lookup[key] = player
+    return lookup
+
+
+def _player_name_keys(player: Dict[str, Any]) -> List[str]:
+    """Generate name variants for lookup matching."""
+    keys = []
+    summoner_name = player.get("summoner_name", "")
+    riot_id = player.get("riot_id_game_name", "")
+    for candidate in (summoner_name, riot_id):
+        if candidate:
+            keys.append(candidate)
+            keys.append(_normalize_name(candidate))
+    return keys
+
+
+def _lookup_team(player_lookup: Dict[str, Dict[str, Any]], name: str) -> str:
+    """Resolve a team name from a lookup table using normalized keys."""
+    if not name:
+        return ""
+    player = player_lookup.get(name)
+    if player:
+        return player.get("team", "")
+    player = player_lookup.get(_normalize_name(name))
+    if player:
+        return player.get("team", "")
+    return ""
